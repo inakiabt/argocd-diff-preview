@@ -259,43 +259,43 @@ func TestBuildFileRegexFromRootApplication_FileNotFound(t *testing.T) {
 
 func TestBuildPatternForPath(t *testing.T) {
 	tests := []struct {
-		name        string
-		path        string
-		recurse     bool
-		expected    string
-		shouldMatch []string
+		name           string
+		path           string
+		recurse        bool
+		expected       string
+		shouldMatch    []string
 		shouldNotMatch []string
 	}{
 		{
-			name:        "simple non-recursive",
-			path:        "apps",
-			recurse:     false,
-			expected:    `^apps/[^/]+\.ya?ml$`,
-			shouldMatch: []string{"apps/app.yaml", "apps/svc.yml"},
+			name:           "simple non-recursive",
+			path:           "apps",
+			recurse:        false,
+			expected:       `^apps/[^/]+\.ya?ml$`,
+			shouldMatch:    []string{"apps/app.yaml", "apps/svc.yml"},
 			shouldNotMatch: []string{"apps/sub/app.yaml"},
 		},
 		{
-			name:        "simple recursive",
-			path:        "apps",
-			recurse:     true,
-			expected:    `^apps/.*\.ya?ml$`,
-			shouldMatch: []string{"apps/app.yaml", "apps/a/b/c.yml"},
+			name:           "simple recursive",
+			path:           "apps",
+			recurse:        true,
+			expected:       `^apps/.*\.ya?ml$`,
+			shouldMatch:    []string{"apps/app.yaml", "apps/a/b/c.yml"},
 			shouldNotMatch: []string{"other/app.yaml"},
 		},
 		{
-			name:        "path with leading slash",
-			path:        "/apps",
-			recurse:     false,
-			expected:    `^apps/[^/]+\.ya?ml$`,
-			shouldMatch: []string{"apps/app.yaml"},
+			name:           "path with leading slash",
+			path:           "/apps",
+			recurse:        false,
+			expected:       `^apps/[^/]+\.ya?ml$`,
+			shouldMatch:    []string{"apps/app.yaml"},
 			shouldNotMatch: []string{},
 		},
 		{
-			name:        "path with trailing slash",
-			path:        "apps/",
-			recurse:     true,
-			expected:    `^apps/.*\.ya?ml$`,
-			shouldMatch: []string{"apps/x/y.yaml"},
+			name:           "path with trailing slash",
+			path:           "apps/",
+			recurse:        true,
+			expected:       `^apps/.*\.ya?ml$`,
+			shouldMatch:    []string{"apps/x/y.yaml"},
 			shouldNotMatch: []string{},
 		},
 	}

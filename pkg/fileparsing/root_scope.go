@@ -18,7 +18,7 @@ import (
 func BuildFileRegexFromRootApplication(branchDir, appRelativePath string) (*string, error) {
 	// Build absolute path to the root Application file
 	appAbsPath := filepath.Join(branchDir, appRelativePath)
-	
+
 	log.Debug().Msgf("Reading root Application from: %s", appAbsPath)
 
 	// Read the file
@@ -43,7 +43,7 @@ func BuildFileRegexFromRootApplication(branchDir, appRelativePath string) (*stri
 
 	// Collect source paths
 	var sourcePaths []sourcePath
-	
+
 	// Try multi-source first (spec.sources)
 	sources, found, err := unstructured.NestedSlice(u.Object, "spec", "sources")
 	if err == nil && found && len(sources) > 0 {
@@ -54,7 +54,7 @@ func BuildFileRegexFromRootApplication(branchDir, appRelativePath string) (*stri
 				log.Warn().Msgf("Source %d is not a map, skipping", i)
 				continue
 			}
-			
+
 			path, pathFound, _ := unstructured.NestedString(srcMap, "path")
 			if !pathFound || path == "" {
 				log.Debug().Msgf("Source %d has no path, skipping", i)
@@ -119,7 +119,7 @@ type sourcePath struct {
 func buildPatternForPath(path string, recurse bool) string {
 	// Clean the path to avoid issues with leading/trailing slashes
 	path = strings.Trim(path, "/")
-	
+
 	if recurse {
 		// Recursive: ^path/.*\.ya?ml$
 		return fmt.Sprintf("^%s/.*\\.ya?ml$", regexp.QuoteMeta(path))

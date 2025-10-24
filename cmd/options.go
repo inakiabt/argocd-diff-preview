@@ -58,41 +58,41 @@ var (
 )
 
 type Options struct {
-	Debug                           bool   `mapstructure:"debug"`
-	DryRun                          bool   `mapstructure:"dry-run"`
-	Timeout                         uint64 `mapstructure:"timeout"`
-	FileRegex                       string `mapstructure:"file-regex"`
-	RootApplicationTarget           string `mapstructure:"root-application-target"`
+	Debug                             bool   `mapstructure:"debug"`
+	DryRun                            bool   `mapstructure:"dry-run"`
+	Timeout                           uint64 `mapstructure:"timeout"`
+	FileRegex                         string `mapstructure:"file-regex"`
+	RootApplicationTarget             string `mapstructure:"root-application-target"`
 	TargetBranchRootApplicationTarget string `mapstructure:"target-branch-root-application-target"`
-	DiffIgnore                      string `mapstructure:"diff-ignore"`
-	LineCount                       uint   `mapstructure:"line-count"`
-	BaseBranch                      string `mapstructure:"base-branch"`
-	TargetBranch                    string `mapstructure:"target-branch"`
-	Repo                            string `mapstructure:"repo"`
-	OutputFolder                    string `mapstructure:"output-folder"`
-	SecretsFolder                   string `mapstructure:"secrets-folder"`
-	CreateCluster                   bool   `mapstructure:"create-cluster"`
-	ClusterType                     string `mapstructure:"cluster"`
-	ClusterName                     string `mapstructure:"cluster-name"`
-	KindOptions                     string `mapstructure:"kind-options"`
-	KindInternal                    bool   `mapstructure:"kind-internal"`
-	K3dOptions                      string `mapstructure:"k3d-options"`
-	MaxDiffLength                   uint   `mapstructure:"max-diff-length"`
-	Selector                        string `mapstructure:"selector"`
-	FilesChanged                    string `mapstructure:"files-changed"`
-	IgnoreInvalidWatchPattern       bool   `mapstructure:"ignore-invalid-watch-pattern"`
-	WatchIfNoWatchPatternFound      bool   `mapstructure:"watch-if-no-watch-pattern-found"`
-	AutoDetectFilesChanged          bool   `mapstructure:"auto-detect-files-changed"`
-	KeepClusterAlive                bool   `mapstructure:"keep-cluster-alive"`
-	ArgocdNamespace                 string `mapstructure:"argocd-namespace"`
-	ArgocdChartVersion              string `mapstructure:"argocd-chart-version"`
-	ArgocdChartName                 string `mapstructure:"argocd-chart-name"`
-	ArgocdChartURL                  string `mapstructure:"argocd-chart-url"`
-	ArgocdChartRepoUsername         string `mapstructure:"argocd-chart-repo-username"`
-	ArgocdChartRepoPassword         string `mapstructure:"argocd-chart-repo-password"`
-	RedirectTargetRevisions         string `mapstructure:"redirect-target-revisions"`
-	LogFormat                       string `mapstructure:"log-format"`
-	Title                           string `mapstructure:"title"`
+	DiffIgnore                        string `mapstructure:"diff-ignore"`
+	LineCount                         uint   `mapstructure:"line-count"`
+	BaseBranch                        string `mapstructure:"base-branch"`
+	TargetBranch                      string `mapstructure:"target-branch"`
+	Repo                              string `mapstructure:"repo"`
+	OutputFolder                      string `mapstructure:"output-folder"`
+	SecretsFolder                     string `mapstructure:"secrets-folder"`
+	CreateCluster                     bool   `mapstructure:"create-cluster"`
+	ClusterType                       string `mapstructure:"cluster"`
+	ClusterName                       string `mapstructure:"cluster-name"`
+	KindOptions                       string `mapstructure:"kind-options"`
+	KindInternal                      bool   `mapstructure:"kind-internal"`
+	K3dOptions                        string `mapstructure:"k3d-options"`
+	MaxDiffLength                     uint   `mapstructure:"max-diff-length"`
+	Selector                          string `mapstructure:"selector"`
+	FilesChanged                      string `mapstructure:"files-changed"`
+	IgnoreInvalidWatchPattern         bool   `mapstructure:"ignore-invalid-watch-pattern"`
+	WatchIfNoWatchPatternFound        bool   `mapstructure:"watch-if-no-watch-pattern-found"`
+	AutoDetectFilesChanged            bool   `mapstructure:"auto-detect-files-changed"`
+	KeepClusterAlive                  bool   `mapstructure:"keep-cluster-alive"`
+	ArgocdNamespace                   string `mapstructure:"argocd-namespace"`
+	ArgocdChartVersion                string `mapstructure:"argocd-chart-version"`
+	ArgocdChartName                   string `mapstructure:"argocd-chart-name"`
+	ArgocdChartURL                    string `mapstructure:"argocd-chart-url"`
+	ArgocdChartRepoUsername           string `mapstructure:"argocd-chart-repo-username"`
+	ArgocdChartRepoPassword           string `mapstructure:"argocd-chart-repo-password"`
+	RedirectTargetRevisions           string `mapstructure:"redirect-target-revisions"`
+	LogFormat                         string `mapstructure:"log-format"`
+	Title                             string `mapstructure:"title"`
 
 	// We'll store the parsed data in these fields
 	parsedFileRegex         *string
