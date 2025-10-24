@@ -22,6 +22,7 @@ const (
 
 type FilterOptions struct {
 	FileRegex                  *string
+	FileRegexTarget            *string
 	Selector                   []selector.Selector
 	FilesChanged               []string
 	IgnoreInvalidWatchPattern  bool
