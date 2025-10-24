@@ -78,9 +78,27 @@ func run(opts *Options) error {
 	// Check if users limited the Application Selection
 	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil
 
+	// Build file regex for target branch from root Application if specified
+	var fileRegexTarget *string
+	targetRoot := opts.TargetBranchRootApplicationTarget
+	if targetRoot == "" {
+		targetRoot = opts.RootApplicationTarget
+	}
+	if targetRoot != "" {
+		log.Info().Msgf("🔍 Building file regex from root Application for target branch: %s", targetRoot)
+		regex, err := fileparsing.BuildFileRegexFromRootApplication(targetBranch.FolderName(), targetRoot)
+		if err != nil {
+			log.Error().Msgf("❌ Failed to build file regex from root Application: %s", err)
+			return err
+		}
+		fileRegexTarget = regex
+		searchIsLimited = true
+	}
+
 	filterOptions := argoapplication.FilterOptions{
 		Selector:                   selectors,
 		FileRegex:                  fileRegex,
+		FileRegexTarget:            fileRegexTarget,
 		FilesChanged:               filesChanged,
 		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
 		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,

@@ -31,24 +31,24 @@ var (
 )
 
 type ArgoCDInstallation struct {
-	K8sClient  *utils.K8sClient
-	Namespace  string
-	Version    string
-	ConfigPath string
-	ChartName  string
-	ChartURL   string
+	K8sClient         *utils.K8sClient
+	Namespace         string
+	Version           string
+	ConfigPath        string
+	ChartName         string
+	ChartURL          string
 	ChartRepoUsername string
 	ChartRepoPassword string
 }
 
 func New(client *utils.K8sClient, namespace string, version string, repoName string, repoURL string, repoUsername string, repoPassword string) *ArgoCDInstallation {
 	return &ArgoCDInstallation{
-		K8sClient:  client,
-		Namespace:  namespace,
-		Version:    version,
-		ConfigPath: "argocd-config",
-		ChartName:  repoName,
-		ChartURL:   repoURL,
+		K8sClient:         client,
+		Namespace:         namespace,
+		Version:           version,
+		ConfigPath:        "argocd-config",
+		ChartName:         repoName,
+		ChartURL:          repoURL,
 		ChartRepoUsername: repoUsername,
 		ChartRepoPassword: repoPassword,
 	}
@@ -155,8 +155,8 @@ func (a *ArgoCDInstallation) installWithHelm() error {
 		// Create a new repository file
 		r := repo.NewFile()
 		r.Add(&repo.Entry{
-			Name: a.ChartName,
-			URL:  a.ChartURL,
+			Name:     a.ChartName,
+			URL:      a.ChartURL,
 			Username: a.ChartRepoUsername,
 			Password: a.ChartRepoPassword,
 		})
@@ -173,8 +173,8 @@ func (a *ArgoCDInstallation) installWithHelm() error {
 
 		if !r.Has(a.ChartName) {
 			r.Add(&repo.Entry{
-				Name: a.ChartName,
-				URL:  a.ChartURL,
+				Name:     a.ChartName,
+				URL:      a.ChartURL,
 				Username: a.ChartRepoUsername,
 				Password: a.ChartRepoPassword,
 			})
@@ -187,8 +187,8 @@ func (a *ArgoCDInstallation) installWithHelm() error {
 
 	// Update repository
 	repoEntry := &repo.Entry{
-		Name: a.ChartName,
-		URL:  a.ChartURL,
+		Name:     a.ChartName,
+		URL:      a.ChartURL,
 		Username: a.ChartRepoUsername,
 		Password: a.ChartRepoPassword,
 	}

@@ -112,7 +112,13 @@ func getApplications(
 ) ([]ArgoResource, error) {
 	log.Info().Str("branch", branch.Name).Msg("🤖 Fetching all files for branch")
 
-	yamlFiles := fileparsing.GetYamlFiles(branch.FolderName(), filterOptions.FileRegex)
+	// Use FileRegexTarget for target branch if available, otherwise use FileRegex
+	effRegex := filterOptions.FileRegex
+	if branch.Type() == git.Target && filterOptions.FileRegexTarget != nil {
+		effRegex = filterOptions.FileRegexTarget
+	}
+
+	yamlFiles := fileparsing.GetYamlFiles(branch.FolderName(), effRegex)
 	log.Info().Str("branch", branch.Name).Msgf("🤖 Found %d files in dir %s", len(yamlFiles), branch.FolderName())
 
 	k8sResources := fileparsing.ParseYaml(branch.FolderName(), yamlFiles, branch.Type())

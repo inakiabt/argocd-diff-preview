@@ -58,39 +58,41 @@ var (
 )
 
 type Options struct {
-	Debug                      bool   `mapstructure:"debug"`
-	DryRun                     bool   `mapstructure:"dry-run"`
-	Timeout                    uint64 `mapstructure:"timeout"`
-	FileRegex                  string `mapstructure:"file-regex"`
-	DiffIgnore                 string `mapstructure:"diff-ignore"`
-	LineCount                  uint   `mapstructure:"line-count"`
-	BaseBranch                 string `mapstructure:"base-branch"`
-	TargetBranch               string `mapstructure:"target-branch"`
-	Repo                       string `mapstructure:"repo"`
-	OutputFolder               string `mapstructure:"output-folder"`
-	SecretsFolder              string `mapstructure:"secrets-folder"`
-	CreateCluster              bool   `mapstructure:"create-cluster"`
-	ClusterType                string `mapstructure:"cluster"`
-	ClusterName                string `mapstructure:"cluster-name"`
-	KindOptions                string `mapstructure:"kind-options"`
-	KindInternal               bool   `mapstructure:"kind-internal"`
-	K3dOptions                 string `mapstructure:"k3d-options"`
-	MaxDiffLength              uint   `mapstructure:"max-diff-length"`
-	Selector                   string `mapstructure:"selector"`
-	FilesChanged               string `mapstructure:"files-changed"`
-	IgnoreInvalidWatchPattern  bool   `mapstructure:"ignore-invalid-watch-pattern"`
-	WatchIfNoWatchPatternFound bool   `mapstructure:"watch-if-no-watch-pattern-found"`
-	AutoDetectFilesChanged     bool   `mapstructure:"auto-detect-files-changed"`
-	KeepClusterAlive           bool   `mapstructure:"keep-cluster-alive"`
-	ArgocdNamespace            string `mapstructure:"argocd-namespace"`
-	ArgocdChartVersion         string `mapstructure:"argocd-chart-version"`
-	ArgocdChartName            string `mapstructure:"argocd-chart-name"`
-	ArgocdChartURL             string `mapstructure:"argocd-chart-url"`
-	ArgocdChartRepoUsername    string `mapstructure:"argocd-chart-repo-username"`
-	ArgocdChartRepoPassword    string `mapstructure:"argocd-chart-repo-password"`
-	RedirectTargetRevisions    string `mapstructure:"redirect-target-revisions"`
-	LogFormat                  string `mapstructure:"log-format"`
-	Title                      string `mapstructure:"title"`
+	Debug                             bool   `mapstructure:"debug"`
+	DryRun                            bool   `mapstructure:"dry-run"`
+	Timeout                           uint64 `mapstructure:"timeout"`
+	FileRegex                         string `mapstructure:"file-regex"`
+	RootApplicationTarget             string `mapstructure:"root-application-target"`
+	TargetBranchRootApplicationTarget string `mapstructure:"target-branch-root-application-target"`
+	DiffIgnore                        string `mapstructure:"diff-ignore"`
+	LineCount                         uint   `mapstructure:"line-count"`
+	BaseBranch                        string `mapstructure:"base-branch"`
+	TargetBranch                      string `mapstructure:"target-branch"`
+	Repo                              string `mapstructure:"repo"`
+	OutputFolder                      string `mapstructure:"output-folder"`
+	SecretsFolder                     string `mapstructure:"secrets-folder"`
+	CreateCluster                     bool   `mapstructure:"create-cluster"`
+	ClusterType                       string `mapstructure:"cluster"`
+	ClusterName                       string `mapstructure:"cluster-name"`
+	KindOptions                       string `mapstructure:"kind-options"`
+	KindInternal                      bool   `mapstructure:"kind-internal"`
+	K3dOptions                        string `mapstructure:"k3d-options"`
+	MaxDiffLength                     uint   `mapstructure:"max-diff-length"`
+	Selector                          string `mapstructure:"selector"`
+	FilesChanged                      string `mapstructure:"files-changed"`
+	IgnoreInvalidWatchPattern         bool   `mapstructure:"ignore-invalid-watch-pattern"`
+	WatchIfNoWatchPatternFound        bool   `mapstructure:"watch-if-no-watch-pattern-found"`
+	AutoDetectFilesChanged            bool   `mapstructure:"auto-detect-files-changed"`
+	KeepClusterAlive                  bool   `mapstructure:"keep-cluster-alive"`
+	ArgocdNamespace                   string `mapstructure:"argocd-namespace"`
+	ArgocdChartVersion                string `mapstructure:"argocd-chart-version"`
+	ArgocdChartName                   string `mapstructure:"argocd-chart-name"`
+	ArgocdChartURL                    string `mapstructure:"argocd-chart-url"`
+	ArgocdChartRepoUsername           string `mapstructure:"argocd-chart-repo-username"`
+	ArgocdChartRepoPassword           string `mapstructure:"argocd-chart-repo-password"`
+	RedirectTargetRevisions           string `mapstructure:"redirect-target-revisions"`
+	LogFormat                         string `mapstructure:"log-format"`
+	Title                             string `mapstructure:"title"`
 
 	// We'll store the parsed data in these fields
 	parsedFileRegex         *string
@@ -243,6 +245,8 @@ func Parse() *Options {
 
 	// File and diff related
 	rootCmd.Flags().StringP("file-regex", "r", "", "Regex to filter files. Example: /apps_.*\\.yaml")
+	rootCmd.Flags().String("root-application-target", "", "Path to root Application file (relative to repo root) for target branch scoped discovery")
+	rootCmd.Flags().String("target-branch-root-application-target", "", "Override path to root Application for target branch (if empty, uses --root-application-target)")
 	rootCmd.Flags().StringP("diff-ignore", "i", "", "Ignore lines in diff. Example: v[1,9]+.[1,9]+.[1,9]+ for ignoring version changes")
 	rootCmd.Flags().StringP("line-count", "c", fmt.Sprintf("%d", DefaultLineCount), "Generate diffs with <n> lines of context")
 
@@ -442,6 +446,12 @@ func (o *Options) LogOptions() {
 	}
 	if o.parsedFileRegex != nil {
 		log.Info().Msgf("✨ - file-regex: %s", *o.parsedFileRegex)
+	}
+	if o.RootApplicationTarget != "" {
+		log.Info().Msgf("✨ - root-application-target: %s", o.RootApplicationTarget)
+	}
+	if o.TargetBranchRootApplicationTarget != "" {
+		log.Info().Msgf("✨ - target-branch-root-application-target: %s", o.TargetBranchRootApplicationTarget)
 	}
 	if o.DiffIgnore != "" {
 		log.Info().Msgf("✨ - diff-ignore: %s", o.DiffIgnore)
