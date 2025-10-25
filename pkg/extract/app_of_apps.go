@@ -14,6 +14,13 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	// Time to wait after root apps sync for child apps to be created
+	childAppDiscoveryDelay = 5 * time.Second
+	// Interval between application sync status checks
+	syncStatusCheckInterval = 5 * time.Second
+)
+
 // DiscoverChildApplications deploys root applications and discovers all child applications created by ArgoCD
 // This supports the App of Apps pattern where a root application generates child applications
 func DiscoverChildApplications(
@@ -64,7 +71,7 @@ func DiscoverChildApplications(
 	log.Info().Msgf("✅ Root applications synced in %s", time.Since(startTime).Round(time.Second))
 
 	// Give ArgoCD a moment to create child applications
-	time.Sleep(5 * time.Second)
+	time.Sleep(childAppDiscoveryDelay)
 
 	// Discover all applications in the namespace
 	log.Info().Msgf("🔍 Discovering child applications from ArgoCD")
@@ -212,6 +219,6 @@ func waitForApplicationSync(argocd *argocdPkg.ArgoCDInstallation, appName string
 		}
 
 		// Sleep before next iteration
-		time.Sleep(5 * time.Second)
+		time.Sleep(syncStatusCheckInterval)
 	}
 }
