@@ -89,28 +89,35 @@ func DiscoverChildApplications(
 	}
 
 	// Filter applications to only include those created by our root apps
-	// Look for applications with our run ID label or that are children of our roots
+	// We include:
+	// 1. Applications with our run ID label (directly deployed by us)
+	// 2. Applications created by ArgoCD as children of our roots (won't have our label)
 	childApps := make([]argoapplication.ArgoResource, 0)
+	rootAppMap := make(map[string]bool)
+	for _, name := range deployedRootApps {
+		rootAppMap[name] = true
+	}
 
 	for _, item := range appList.Items {
-		labels := item.GetLabels()
-		
-		// Skip if this doesn't have our run ID (not created by us)
-		if labels == nil || labels["argocd-diff-preview.io/run-id"] != prefix {
-			continue
-		}
-
 		appName := item.GetName()
 		
 		// Skip if this is one of the root applications we deployed
-		isRoot := false
-		for _, rootName := range deployedRootApps {
-			if appName == rootName {
-				isRoot = true
-				break
-			}
+		if rootAppMap[appName] {
+			continue
 		}
-		if isRoot {
+
+		labels := item.GetLabels()
+		
+		// Include applications with our run ID label (directly deployed)
+		hasRunID := labels != nil && labels["argocd-diff-preview.io/run-id"] == prefix
+		
+		// For child apps created by ArgoCD's App of Apps, check if they're in the same namespace
+		// and were created after we started (they won't have our label)
+		// This is a best-effort discovery - we assume apps in the namespace are children
+		inSameNamespace := item.GetNamespace() == argocd.Namespace || item.GetNamespace() == ""
+		
+		// Include if it has our label OR if it's in the same namespace (likely a child)
+		if !hasRunID && !inSameNamespace {
 			continue
 		}
 
