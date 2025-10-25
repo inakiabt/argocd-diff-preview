@@ -145,10 +145,12 @@ Rendering manifests for all applications in your repository on every pull reques
 
 ### Filter by Specific Application Paths
 
-You can filter which applications to validate by specifying their paths directly using the `--application` flag. This is particularly useful when:
+You can filter which applications to validate by specifying their paths directly. This is particularly useful when:
 - Restructuring your repository (e.g., moving from single to multi-cluster structure)
 - Validating specific root applications (e.g., separate prod and dev roots)
 - Testing changes to critical applications only
+
+**Option 1: Same application paths for both branches**
 
 Example with CLI flags:
 ```bash
@@ -175,7 +177,40 @@ docker run \
   dagandersen/argocd-diff-preview:latest
 ```
 
-> **Note**: For the `APPLICATION` environment variable, separate multiple paths with commas.
+**Option 2: Different application paths for base and target branches**
+
+Use this when restructuring where application files are in different locations between branches.
+
+Example with CLI flags:
+```bash
+argocd-diff-preview \
+  --base-application apps/old-structure/root.yaml \
+  --target-application apps/new-structure/prod/root.yaml \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e BASE_APPLICATION="apps/old-structure/root.yaml" \
+  -e TARGET_APPLICATION="apps/new-structure/prod/root.yaml" \
+  dagandersen/argocd-diff-preview:latest
+```
+
+> **Notes**: 
+> - For environment variables, separate multiple paths with commas (e.g., `APPLICATION="path1,path2"`)
+> - If `--target-application` is not specified, it defaults to the value of `--base-application`
+> - The `--application` flag applies to both branches unless overridden by `--base-application` or `--target-application`
 
 ### Live State Comparison
 

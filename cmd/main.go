@@ -53,7 +53,8 @@ func run(opts *Options) error {
 	filesChanged := opts.GetFilesChanged()
 	redirectRevisions := opts.GetRedirectRevisions()
 	clusterProvider := opts.GetClusterProvider()
-	applicationPaths := opts.GetApplicationPaths()
+	baseApplicationPaths := opts.GetBaseApplicationPaths()
+	targetApplicationPaths := opts.GetTargetApplicationPaths()
 
 	// Create unique ID only consisting of lowercase letters of 5 characters
 	uniqueID := uuid.New().String()[:5]
@@ -78,13 +79,23 @@ func run(opts *Options) error {
 	}
 
 	// Check if users limited the Application Selection
-	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil || len(applicationPaths) > 0
+	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil || len(baseApplicationPaths) > 0 || len(targetApplicationPaths) > 0
 
-	filterOptions := argoapplication.FilterOptions{
+	// Create separate filter options for base and target branches
+	baseFilterOptions := argoapplication.FilterOptions{
 		Selector:                   selectors,
 		FileRegex:                  fileRegex,
 		FilesChanged:               filesChanged,
-		ApplicationPaths:           applicationPaths,
+		ApplicationPaths:           baseApplicationPaths,
+		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
+		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,
+	}
+
+	targetFilterOptions := argoapplication.FilterOptions{
+		Selector:                   selectors,
+		FileRegex:                  fileRegex,
+		FilesChanged:               filesChanged,
+		ApplicationPaths:           targetApplicationPaths,
 		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
 		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,
 	}
@@ -94,7 +105,8 @@ func run(opts *Options) error {
 		opts.ArgocdNamespace,
 		baseBranch,
 		targetBranch,
-		filterOptions,
+		baseFilterOptions,
+		targetFilterOptions,
 		opts.Repo,
 		redirectRevisions,
 	)
@@ -224,7 +236,8 @@ func run(opts *Options) error {
 		tempFolder,
 		redirectRevisions,
 		opts.Debug,
-		filterOptions,
+		baseFilterOptions,
+		targetFilterOptions,
 	)
 	if err != nil {
 		log.Error().Msgf("❌ Failed to generate apps from ApplicationSets")

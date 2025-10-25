@@ -73,14 +73,15 @@ func GetApplicationsForBranches(
 	argocdNamespace string,
 	baseBranch *git.Branch,
 	targetBranch *git.Branch,
-	filterOptions FilterOptions,
+	baseFilterOptions FilterOptions,
+	targetFilterOptions FilterOptions,
 	repo string,
 	redirectRevisions []string,
 ) ([]ArgoResource, []ArgoResource, error) {
 	baseApps, err := getApplications(
 		argocdNamespace,
 		baseBranch,
-		filterOptions,
+		baseFilterOptions,
 		repo,
 		redirectRevisions,
 	)
@@ -91,7 +92,7 @@ func GetApplicationsForBranches(
 	targetApps, err := getApplications(
 		argocdNamespace,
 		targetBranch,
-		filterOptions,
+		targetFilterOptions,
 		repo,
 		redirectRevisions,
 	)

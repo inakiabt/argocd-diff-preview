@@ -59,49 +59,53 @@ var (
 )
 
 type Options struct {
-	Debug                      bool   `mapstructure:"debug"`
-	DryRun                     bool   `mapstructure:"dry-run"`
-	Timeout                    uint64 `mapstructure:"timeout"`
-	FileRegex                  string `mapstructure:"file-regex"`
-	DiffIgnore                 string `mapstructure:"diff-ignore"`
-	LineCount                  uint   `mapstructure:"line-count"`
-	BaseBranch                 string `mapstructure:"base-branch"`
-	TargetBranch               string `mapstructure:"target-branch"`
-	Repo                       string `mapstructure:"repo"`
-	OutputFolder               string `mapstructure:"output-folder"`
-	SecretsFolder              string `mapstructure:"secrets-folder"`
-	CreateCluster              bool   `mapstructure:"create-cluster"`
-	ClusterType                string `mapstructure:"cluster"`
-	ClusterName                string `mapstructure:"cluster-name"`
-	KindOptions                string `mapstructure:"kind-options"`
-	KindInternal               bool   `mapstructure:"kind-internal"`
-	K3dOptions                 string `mapstructure:"k3d-options"`
-	MaxDiffLength              uint   `mapstructure:"max-diff-length"`
-	Selector                   string `mapstructure:"selector"`
-	FilesChanged               string `mapstructure:"files-changed"`
-	IgnoreInvalidWatchPattern  bool   `mapstructure:"ignore-invalid-watch-pattern"`
-	WatchIfNoWatchPatternFound bool   `mapstructure:"watch-if-no-watch-pattern-found"`
-	AutoDetectFilesChanged     bool   `mapstructure:"auto-detect-files-changed"`
-	KeepClusterAlive           bool   `mapstructure:"keep-cluster-alive"`
-	ArgocdNamespace            string `mapstructure:"argocd-namespace"`
-	ArgocdChartVersion         string `mapstructure:"argocd-chart-version"`
-	ArgocdChartName            string `mapstructure:"argocd-chart-name"`
-	ArgocdChartURL             string `mapstructure:"argocd-chart-url"`
-	ArgocdChartRepoUsername    string `mapstructure:"argocd-chart-repo-username"`
-	ArgocdChartRepoPassword    string `mapstructure:"argocd-chart-repo-password"`
+	Debug                      bool     `mapstructure:"debug"`
+	DryRun                     bool     `mapstructure:"dry-run"`
+	Timeout                    uint64   `mapstructure:"timeout"`
+	FileRegex                  string   `mapstructure:"file-regex"`
+	DiffIgnore                 string   `mapstructure:"diff-ignore"`
+	LineCount                  uint     `mapstructure:"line-count"`
+	BaseBranch                 string   `mapstructure:"base-branch"`
+	TargetBranch               string   `mapstructure:"target-branch"`
+	Repo                       string   `mapstructure:"repo"`
+	OutputFolder               string   `mapstructure:"output-folder"`
+	SecretsFolder              string   `mapstructure:"secrets-folder"`
+	CreateCluster              bool     `mapstructure:"create-cluster"`
+	ClusterType                string   `mapstructure:"cluster"`
+	ClusterName                string   `mapstructure:"cluster-name"`
+	KindOptions                string   `mapstructure:"kind-options"`
+	KindInternal               bool     `mapstructure:"kind-internal"`
+	K3dOptions                 string   `mapstructure:"k3d-options"`
+	MaxDiffLength              uint     `mapstructure:"max-diff-length"`
+	Selector                   string   `mapstructure:"selector"`
+	FilesChanged               string   `mapstructure:"files-changed"`
+	IgnoreInvalidWatchPattern  bool     `mapstructure:"ignore-invalid-watch-pattern"`
+	WatchIfNoWatchPatternFound bool     `mapstructure:"watch-if-no-watch-pattern-found"`
+	AutoDetectFilesChanged     bool     `mapstructure:"auto-detect-files-changed"`
+	KeepClusterAlive           bool     `mapstructure:"keep-cluster-alive"`
+	ArgocdNamespace            string   `mapstructure:"argocd-namespace"`
+	ArgocdChartVersion         string   `mapstructure:"argocd-chart-version"`
+	ArgocdChartName            string   `mapstructure:"argocd-chart-name"`
+	ArgocdChartURL             string   `mapstructure:"argocd-chart-url"`
+	ArgocdChartRepoUsername    string   `mapstructure:"argocd-chart-repo-username"`
+	ArgocdChartRepoPassword    string   `mapstructure:"argocd-chart-repo-password"`
 	RedirectTargetRevisions    string   `mapstructure:"redirect-target-revisions"`
 	LogFormat                  string   `mapstructure:"log-format"`
 	Title                      string   `mapstructure:"title"`
 	ApplicationPaths           []string `mapstructure:"application"`
+	BaseApplicationPaths       []string `mapstructure:"base-application"`
+	TargetApplicationPaths     []string `mapstructure:"target-application"`
 	CompareLiveState           bool     `mapstructure:"compare-live-state"`
 
 	// We'll store the parsed data in these fields
-	parsedFileRegex         *string
-	parsedSelectors         []selector.Selector
-	parsedFilesChanged      []string
-	parsedRedirectRevisions []string
-	parsedApplicationPaths  []string
-	clusterProvider         cluster.Provider
+	parsedFileRegex            *string
+	parsedSelectors            []selector.Selector
+	parsedFilesChanged         []string
+	parsedRedirectRevisions    []string
+	parsedApplicationPaths     []string
+	parsedBaseApplicationPaths []string
+	parsedTargetApplicationPaths []string
+	clusterProvider            cluster.Provider
 }
 
 // Parse parses command line flags and environment variables
@@ -176,7 +180,27 @@ func Parse() *Options {
 			opts.parsedRedirectRevisions = opts.ParseRedirectRevisions()
 
 			// Parse application paths
+			// Support backward compatibility: if --application is used, apply to both branches
+			// If --base-application or --target-application are used, use those specifically
 			opts.parsedApplicationPaths = opts.ApplicationPaths
+			opts.parsedBaseApplicationPaths = opts.BaseApplicationPaths
+			opts.parsedTargetApplicationPaths = opts.TargetApplicationPaths
+			
+			// If base/target specific paths are not set but general application paths are set,
+			// use the general paths for both
+			if len(opts.parsedApplicationPaths) > 0 {
+				if len(opts.parsedBaseApplicationPaths) == 0 {
+					opts.parsedBaseApplicationPaths = opts.parsedApplicationPaths
+				}
+				if len(opts.parsedTargetApplicationPaths) == 0 {
+					opts.parsedTargetApplicationPaths = opts.parsedApplicationPaths
+				}
+			}
+			
+			// If target application paths are not set, use base application paths
+			if len(opts.parsedTargetApplicationPaths) == 0 && len(opts.parsedBaseApplicationPaths) > 0 {
+				opts.parsedTargetApplicationPaths = opts.parsedBaseApplicationPaths
+			}
 
 			// Parse cluster type if we are creating a new cluster
 			if opts.CreateCluster {
@@ -288,7 +312,9 @@ func Parse() *Options {
 	rootCmd.Flags().Bool("watch-if-no-watch-pattern-found", DefaultWatchIfNoWatchPatternFound, "Render applications without watch pattern")
 	rootCmd.Flags().String("redirect-target-revisions", "", "List of target revisions to redirect")
 	rootCmd.Flags().String("title", DefaultTitle, "Custom title for the markdown output")
-	rootCmd.Flags().StringSlice("application", []string{}, "Application file path (can be specified multiple times, e.g., --application apps/prod/root.yaml --application apps/dev/root.yaml)")
+	rootCmd.Flags().StringSlice("application", []string{}, "Application file path (can be specified multiple times, applies to both branches unless --base-application or --target-application are used)")
+	rootCmd.Flags().StringSlice("base-application", []string{}, "Application file path for base branch (can be specified multiple times)")
+	rootCmd.Flags().StringSlice("target-application", []string{}, "Application file path for target branch (can be specified multiple times, defaults to base-application if not specified)")
 	rootCmd.Flags().Bool("compare-live-state", DefaultCompareLiveState, "Compare rendered manifests with live cluster state")
 
 	// Check if version flag was specified directly
@@ -505,11 +531,30 @@ func (o *Options) LogOptions() {
 		log.Info().Msgf("✨ - title: %s", o.Title)
 	}
 	if len(o.parsedApplicationPaths) > 0 {
-		log.Info().Msgf("✨ - application-paths: %s", strings.Join(o.parsedApplicationPaths, ", "))
+		log.Info().Msgf("✨ - application-paths (both branches): %s", strings.Join(o.parsedApplicationPaths, ", "))
+	}
+	if len(o.parsedBaseApplicationPaths) > 0 {
+		log.Info().Msgf("✨ - base-application-paths: %s", strings.Join(o.parsedBaseApplicationPaths, ", "))
+	}
+	if len(o.parsedTargetApplicationPaths) > 0 && !slicesEqual(o.parsedTargetApplicationPaths, o.parsedBaseApplicationPaths) {
+		log.Info().Msgf("✨ - target-application-paths: %s", strings.Join(o.parsedTargetApplicationPaths, ", "))
 	}
 	if o.CompareLiveState {
 		log.Info().Msgf("✨ - compare-live-state: %t", o.CompareLiveState)
 	}
+}
+
+// slicesEqual compares two string slices for equality
+func slicesEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // GetFileRegex returns the parsed regex
@@ -540,4 +585,14 @@ func (o *Options) GetClusterProvider() cluster.Provider {
 // GetApplicationPaths returns the parsed application paths
 func (o *Options) GetApplicationPaths() []string {
 	return o.parsedApplicationPaths
+}
+
+// GetBaseApplicationPaths returns the parsed base application paths
+func (o *Options) GetBaseApplicationPaths() []string {
+	return o.parsedBaseApplicationPaths
+}
+
+// GetTargetApplicationPaths returns the parsed target application paths
+func (o *Options) GetTargetApplicationPaths() []string {
+	return o.parsedTargetApplicationPaths
 }
