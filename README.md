@@ -150,7 +150,7 @@ You can filter which applications to validate by specifying their paths directly
 - Validating specific root applications (e.g., separate prod and dev roots)
 - Testing changes to critical applications only
 
-Example:
+Example with CLI flags:
 ```bash
 argocd-diff-preview \
   --application apps/clusters/main/root.yaml \
@@ -160,6 +160,23 @@ argocd-diff-preview \
   --repo myorg/myrepo
 ```
 
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e APPLICATION="apps/clusters/main/root.yaml,apps/clusters/dev/root.yaml" \
+  dagandersen/argocd-diff-preview:latest
+```
+
+> **Note**: For the `APPLICATION` environment variable, separate multiple paths with commas.
+
 ### Live State Comparison
 
 When you have an existing cluster with Argo CD pre-installed, you can compare the rendered manifests with the live cluster state using the `--compare-live-state` flag. This helps you:
@@ -167,7 +184,7 @@ When you have an existing cluster with Argo CD pre-installed, you can compare th
 - See what resources will be created, updated, or deleted
 - Ensure consistency between different environments
 
-Example:
+Example with CLI flags:
 ```bash
 argocd-diff-preview \
   --create-cluster=false \
@@ -175,6 +192,22 @@ argocd-diff-preview \
   --base-branch main \
   --target-branch my-feature-branch \
   --repo myorg/myrepo
+```
+
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v ~/.kube:/root/.kube \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e CREATE_CLUSTER=false \
+  -e COMPARE_LIVE_STATE=true \
+  dagandersen/argocd-diff-preview:latest
 ```
 
 The tool will generate a `live-state-comparison.md` file in the output folder showing:

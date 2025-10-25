@@ -241,6 +241,7 @@ func Parse() *Options {
 	viper.SetDefault("log-format", DefaultLogFormat)
 	viper.SetDefault("title", DefaultTitle)
 	viper.SetDefault("dry-run", DefaultDryRun)
+	viper.SetDefault("compare-live-state", DefaultCompareLiveState)
 
 	// Basic flags
 	rootCmd.Flags().BoolP("debug", "d", false, "Activate debug mode")
