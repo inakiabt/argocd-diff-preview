@@ -34,7 +34,9 @@ The safest way to make changes to you Helm Charts and Kustomize Overlays in your
 - Can be run locally before you open the pull request
 - Supports private repositories and Helm charts
 - Supports multi-source applications
-- Render resources from external sources (e.g., Helm charts). For example, when you update the Helm Chart version of `nginx`, you can see what exactly changed. [PR example](https://github.com/dag-andersen/argocd-diff-preview/pull/15) 
+- Render resources from external sources (e.g., Helm charts). For example, when you update the Helm Chart version of `nginx`, you can see what exactly changed. [PR example](https://github.com/dag-andersen/argocd-diff-preview/pull/15)
+- **Filter by specific application paths**: Use `--application` flag to specify multiple application files to validate
+- **Live state comparison**: Compare rendered manifests with live cluster state using `--compare-live-state` flag
 
 ---
 
@@ -140,6 +142,47 @@ If you’re using GitLab, Bitbucket, Jenkins, CircleCI, or any other tool – it
 Instead of spinning up an ephemeral cluster for each diff preview, you can connect to a cluster with Argo CD pre-installed. This saves approximately `60` seconds per run. Refer to the [documentation](https://dag-andersen.github.io/argocd-diff-preview/reusing-clusters/connecting/) to learn how to do this.
 
 Rendering manifests for all applications in your repository on every pull request can be time-consuming, especially in large monorepos. By default, `argocd-diff-preview` renders all applications it finds, but you can significantly speed up the process by limiting which applications are rendered. Refer to the [Application Selection](https://dag-andersen.github.io/argocd-diff-preview/application-selection/) section in the docs to learn how to do this.
+
+### Filter by Specific Application Paths
+
+You can filter which applications to validate by specifying their paths directly using the `--application` flag. This is particularly useful when:
+- Restructuring your repository (e.g., moving from single to multi-cluster structure)
+- Validating specific root applications (e.g., separate prod and dev roots)
+- Testing changes to critical applications only
+
+Example:
+```bash
+argocd-diff-preview \
+  --application apps/clusters/main/root.yaml \
+  --application apps/clusters/dev/root.yaml \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+### Live State Comparison
+
+When you have an existing cluster with Argo CD pre-installed, you can compare the rendered manifests with the live cluster state using the `--compare-live-state` flag. This helps you:
+- Validate that changes won't unintentionally alter the live cluster state
+- See what resources will be created, updated, or deleted
+- Ensure consistency between different environments
+
+Example:
+```bash
+argocd-diff-preview \
+  --create-cluster=false \
+  --compare-live-state \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+The tool will generate a `live-state-comparison.md` file in the output folder showing:
+- Resources only in rendered manifests (will be created)
+- Resources only in live state (will be deleted)
+- Resources with differences (will be updated)
+
+> **Note**: Live state comparison only works when connecting to an existing cluster with `--create-cluster=false`.
 
 ## Full Documentation
 
