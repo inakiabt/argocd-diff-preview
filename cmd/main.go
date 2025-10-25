@@ -244,6 +244,32 @@ func run(opts *Options) error {
 		return err
 	}
 
+	// Discover child applications from root apps if application paths are specified
+	// This enables the App of Apps pattern where a root application generates child applications
+	if len(baseApplicationPaths) > 0 && len(baseApps) > 0 {
+		log.Info().Msg("🌳 App of Apps mode enabled for base branch - discovering child applications")
+		childApps, err := extract.DiscoverChildApplications(argocd, baseApps, git.Base, opts.Timeout, uniqueID)
+		if err != nil {
+			log.Error().Msgf("❌ Failed to discover child applications for base branch: %v", err)
+			return err
+		}
+		// Add discovered child applications to the list
+		baseApps = append(baseApps, childApps...)
+		log.Info().Msgf("🌳 Total applications for base branch (including children): %d", len(baseApps))
+	}
+
+	if len(targetApplicationPaths) > 0 && len(targetApps) > 0 {
+		log.Info().Msg("🌳 App of Apps mode enabled for target branch - discovering child applications")
+		childApps, err := extract.DiscoverChildApplications(argocd, targetApps, git.Target, opts.Timeout, uniqueID)
+		if err != nil {
+			log.Error().Msgf("❌ Failed to discover child applications for target branch: %v", err)
+			return err
+		}
+		// Add discovered child applications to the list
+		targetApps = append(targetApps, childApps...)
+		log.Info().Msgf("🌳 Total applications for target branch (including children): %d", len(targetApps))
+	}
+
 	// Check for duplicates again
 	baseApps, targetApps = duplicates.RemoveDuplicates(baseApps, targetApps)
 
