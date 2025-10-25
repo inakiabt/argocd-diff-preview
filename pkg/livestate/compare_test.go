@@ -129,8 +129,9 @@ func createTestResource(kind, name, namespace string) unstructured.Unstructured 
 	}
 	
 	if namespace != "" {
-		metadata := resource.Object["metadata"].(map[string]interface{})
-		metadata["namespace"] = namespace
+		if metadata, ok := resource.Object["metadata"].(map[string]interface{}); ok {
+			metadata["namespace"] = namespace
+		}
 	}
 	
 	return resource
