@@ -55,6 +55,7 @@ var (
 	DefaultAutoDetectFilesChanged     = false
 	DefaultWatchIfNoWatchPatternFound = false
 	DefaultIgnoreInvalidWatchPattern  = false
+	DefaultCompareLiveState           = false
 )
 
 type Options struct {
@@ -88,15 +89,18 @@ type Options struct {
 	ArgocdChartURL             string `mapstructure:"argocd-chart-url"`
 	ArgocdChartRepoUsername    string `mapstructure:"argocd-chart-repo-username"`
 	ArgocdChartRepoPassword    string `mapstructure:"argocd-chart-repo-password"`
-	RedirectTargetRevisions    string `mapstructure:"redirect-target-revisions"`
-	LogFormat                  string `mapstructure:"log-format"`
-	Title                      string `mapstructure:"title"`
+	RedirectTargetRevisions    string   `mapstructure:"redirect-target-revisions"`
+	LogFormat                  string   `mapstructure:"log-format"`
+	Title                      string   `mapstructure:"title"`
+	ApplicationPaths           []string `mapstructure:"application"`
+	CompareLiveState           bool     `mapstructure:"compare-live-state"`
 
 	// We'll store the parsed data in these fields
 	parsedFileRegex         *string
 	parsedSelectors         []selector.Selector
 	parsedFilesChanged      []string
 	parsedRedirectRevisions []string
+	parsedApplicationPaths  []string
 	clusterProvider         cluster.Provider
 }
 
@@ -170,6 +174,9 @@ func Parse() *Options {
 
 			// Parse redirect revisions
 			opts.parsedRedirectRevisions = opts.ParseRedirectRevisions()
+
+			// Parse application paths
+			opts.parsedApplicationPaths = opts.ApplicationPaths
 
 			// Parse cluster type if we are creating a new cluster
 			if opts.CreateCluster {
@@ -280,6 +287,8 @@ func Parse() *Options {
 	rootCmd.Flags().Bool("watch-if-no-watch-pattern-found", DefaultWatchIfNoWatchPatternFound, "Render applications without watch pattern")
 	rootCmd.Flags().String("redirect-target-revisions", "", "List of target revisions to redirect")
 	rootCmd.Flags().String("title", DefaultTitle, "Custom title for the markdown output")
+	rootCmd.Flags().StringSlice("application", []string{}, "Application file path (can be specified multiple times, e.g., --application apps/prod/root.yaml --application apps/dev/root.yaml)")
+	rootCmd.Flags().Bool("compare-live-state", DefaultCompareLiveState, "Compare rendered manifests with live cluster state")
 
 	// Check if version flag was specified directly
 	for _, arg := range os.Args[1:] {
@@ -494,6 +503,12 @@ func (o *Options) LogOptions() {
 	if o.Title != DefaultTitle {
 		log.Info().Msgf("✨ - title: %s", o.Title)
 	}
+	if len(o.parsedApplicationPaths) > 0 {
+		log.Info().Msgf("✨ - application-paths: %s", strings.Join(o.parsedApplicationPaths, ", "))
+	}
+	if o.CompareLiveState {
+		log.Info().Msgf("✨ - compare-live-state: %t", o.CompareLiveState)
+	}
 }
 
 // GetFileRegex returns the parsed regex
@@ -519,4 +534,9 @@ func (o *Options) GetRedirectRevisions() []string {
 // GetClusterProvider returns the cluster provider
 func (o *Options) GetClusterProvider() cluster.Provider {
 	return o.clusterProvider
+}
+
+// GetApplicationPaths returns the parsed application paths
+func (o *Options) GetApplicationPaths() []string {
+	return o.parsedApplicationPaths
 }

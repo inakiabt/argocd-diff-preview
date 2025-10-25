@@ -52,6 +52,7 @@ func run(opts *Options) error {
 	filesChanged := opts.GetFilesChanged()
 	redirectRevisions := opts.GetRedirectRevisions()
 	clusterProvider := opts.GetClusterProvider()
+	applicationPaths := opts.GetApplicationPaths()
 
 	// Create unique ID only consisting of lowercase letters of 5 characters
 	uniqueID := uuid.New().String()[:5]
@@ -76,12 +77,13 @@ func run(opts *Options) error {
 	}
 
 	// Check if users limited the Application Selection
-	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil
+	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil || len(applicationPaths) > 0
 
 	filterOptions := argoapplication.FilterOptions{
 		Selector:                   selectors,
 		FileRegex:                  fileRegex,
 		FilesChanged:               filesChanged,
+		ApplicationPaths:           applicationPaths,
 		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
 		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,
 	}
