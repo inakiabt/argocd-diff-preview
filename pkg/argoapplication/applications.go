@@ -15,12 +15,13 @@ import (
 
 // ArgoResource represents an Argo CD Application or ApplicationSet
 type ArgoResource struct {
-	Yaml     *unstructured.Unstructured
-	Kind     ApplicationKind
-	Id       string // The ID is the name of the k8s resource
-	Name     string // The name is the original name of the Application
-	FileName string
-	Branch   git.BranchType
+	Yaml            *unstructured.Unstructured
+	Kind            ApplicationKind
+	Id              string // The ID is the name of the k8s resource
+	Name            string // The name is the original name of the Application
+	FileName        string
+	Branch          git.BranchType
+	AlreadyDeployed bool // True if this app was discovered from ArgoCD and shouldn't be re-applied
 }
 
 // NewArgoResource creates a new ArgoResource
@@ -73,14 +74,15 @@ func GetApplicationsForBranches(
 	argocdNamespace string,
 	baseBranch *git.Branch,
 	targetBranch *git.Branch,
-	filterOptions FilterOptions,
+	baseFilterOptions FilterOptions,
+	targetFilterOptions FilterOptions,
 	repo string,
 	redirectRevisions []string,
 ) ([]ArgoResource, []ArgoResource, error) {
 	baseApps, err := getApplications(
 		argocdNamespace,
 		baseBranch,
-		filterOptions,
+		baseFilterOptions,
 		repo,
 		redirectRevisions,
 	)
@@ -91,7 +93,7 @@ func GetApplicationsForBranches(
 	targetApps, err := getApplications(
 		argocdNamespace,
 		targetBranch,
-		filterOptions,
+		targetFilterOptions,
 		repo,
 		redirectRevisions,
 	)

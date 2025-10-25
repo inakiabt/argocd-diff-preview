@@ -24,12 +24,20 @@ type FilterOptions struct {
 	FileRegex                  *string
 	Selector                   []selector.Selector
 	FilesChanged               []string
+	ApplicationPaths           []string
 	IgnoreInvalidWatchPattern  bool
 	WatchIfNoWatchPatternFound bool
 }
 
 func FilterAllWithLogging(apps []ArgoResource, filterOptions FilterOptions, branch *git.Branch) []ArgoResource {
 	// Log selector and files changed info
+	if len(filterOptions.ApplicationPaths) > 0 {
+		log.Info().Msgf(
+			"🤖 Will only run on Applications from these paths: '%s'",
+			strings.Join(filterOptions.ApplicationPaths, "', '"),
+		)
+	}
+	
 	switch {
 	case len(filterOptions.Selector) > 0 && len(filterOptions.FilesChanged) > 0:
 		var selectorStrs []string
@@ -100,7 +108,16 @@ func (a *ArgoResource) Filter(
 	filterOptions FilterOptions,
 ) bool {
 
-	// First check selected annotation
+	// First check application paths if specified
+	if len(filterOptions.ApplicationPaths) > 0 {
+		selected, reason := a.filterByApplicationPaths(filterOptions.ApplicationPaths)
+		if !selected {
+			log.Debug().Str(a.Kind.ShortName(), a.GetLongName()).Msgf("%s is not selected because: %s", a.Kind.ShortName(), reason)
+			return false
+		}
+	}
+
+	// Then check selected annotation
 	selected, reason := a.filterByIgnoreAnnotation()
 	if !selected {
 		log.Debug().Str(a.Kind.ShortName(), a.GetLongName()).Msgf("%s is not selected because: %s", a.Kind.ShortName(), reason)
@@ -127,6 +144,15 @@ func (a *ArgoResource) Filter(
 	}
 
 	return true
+}
+
+func (a *ArgoResource) filterByApplicationPaths(applicationPaths []string) (bool, string) {
+	for _, path := range applicationPaths {
+		if a.FileName == path {
+			return true, fmt.Sprintf("application file matches specified path: '%s'", path)
+		}
+	}
+	return false, fmt.Sprintf("application file '%s' does not match any specified paths", a.FileName)
 }
 
 func (a *ArgoResource) filterByIgnoreAnnotation() (bool, string) {

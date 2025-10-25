@@ -13,6 +13,7 @@ import (
 	"github.com/dag-andersen/argocd-diff-preview/pkg/extract"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/fileparsing"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/git"
+	"github.com/dag-andersen/argocd-diff-preview/pkg/livestate"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -52,6 +53,8 @@ func run(opts *Options) error {
 	filesChanged := opts.GetFilesChanged()
 	redirectRevisions := opts.GetRedirectRevisions()
 	clusterProvider := opts.GetClusterProvider()
+	baseApplicationPaths := opts.GetBaseApplicationPaths()
+	targetApplicationPaths := opts.GetTargetApplicationPaths()
 
 	// Create unique ID only consisting of lowercase letters of 5 characters
 	uniqueID := uuid.New().String()[:5]
@@ -76,12 +79,23 @@ func run(opts *Options) error {
 	}
 
 	// Check if users limited the Application Selection
-	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil
+	searchIsLimited := len(selectors) > 0 || len(filesChanged) > 0 || fileRegex != nil || len(baseApplicationPaths) > 0 || len(targetApplicationPaths) > 0
 
-	filterOptions := argoapplication.FilterOptions{
+	// Create separate filter options for base and target branches
+	baseFilterOptions := argoapplication.FilterOptions{
 		Selector:                   selectors,
 		FileRegex:                  fileRegex,
 		FilesChanged:               filesChanged,
+		ApplicationPaths:           baseApplicationPaths,
+		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
+		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,
+	}
+
+	targetFilterOptions := argoapplication.FilterOptions{
+		Selector:                   selectors,
+		FileRegex:                  fileRegex,
+		FilesChanged:               filesChanged,
+		ApplicationPaths:           targetApplicationPaths,
 		IgnoreInvalidWatchPattern:  opts.IgnoreInvalidWatchPattern,
 		WatchIfNoWatchPatternFound: opts.WatchIfNoWatchPatternFound,
 	}
@@ -91,7 +105,8 @@ func run(opts *Options) error {
 		opts.ArgocdNamespace,
 		baseBranch,
 		targetBranch,
-		filterOptions,
+		baseFilterOptions,
+		targetFilterOptions,
 		opts.Repo,
 		redirectRevisions,
 	)
@@ -221,11 +236,38 @@ func run(opts *Options) error {
 		tempFolder,
 		redirectRevisions,
 		opts.Debug,
-		filterOptions,
+		baseFilterOptions,
+		targetFilterOptions,
 	)
 	if err != nil {
 		log.Error().Msgf("❌ Failed to generate apps from ApplicationSets")
 		return err
+	}
+
+	// Discover child applications from root apps if application paths are specified
+	// This enables the App of Apps pattern where a root application generates child applications
+	if len(baseApplicationPaths) > 0 && len(baseApps) > 0 {
+		log.Info().Msg("🌳 App of Apps mode enabled for base branch - discovering child applications")
+		childApps, err := extract.DiscoverChildApplications(argocd, baseApps, git.Base, opts.Timeout, uniqueID)
+		if err != nil {
+			log.Error().Msgf("❌ Failed to discover child applications for base branch: %v", err)
+			return err
+		}
+		// Add discovered child applications to the list
+		baseApps = append(baseApps, childApps...)
+		log.Info().Msgf("🌳 Total applications for base branch (including children): %d", len(baseApps))
+	}
+
+	if len(targetApplicationPaths) > 0 && len(targetApps) > 0 {
+		log.Info().Msg("🌳 App of Apps mode enabled for target branch - discovering child applications")
+		childApps, err := extract.DiscoverChildApplications(argocd, targetApps, git.Target, opts.Timeout, uniqueID)
+		if err != nil {
+			log.Error().Msgf("❌ Failed to discover child applications for target branch: %v", err)
+			return err
+		}
+		// Add discovered child applications to the list
+		targetApps = append(targetApps, childApps...)
+		log.Info().Msgf("🌳 Total applications for target branch (including children): %d", len(targetApps))
 	}
 
 	// Check for duplicates again
@@ -357,6 +399,22 @@ func run(opts *Options) error {
 		return err
 	}
 
+	// If compare-live-state flag is enabled, fetch and compare with live state
+	if opts.CompareLiveState && !opts.CreateCluster {
+		log.Info().Msg("🔍 Comparing rendered manifests with live cluster state")
+		
+		// Import the livestate package
+		liveStateResults, err := fetchAndCompareLiveState(targetApps, targetManifests, opts.ArgocdNamespace, opts.OutputFolder)
+		if err != nil {
+			log.Warn().Msgf("⚠️ Failed to compare with live state: %v", err)
+			// Don't fail the entire run if live state comparison fails
+		} else if liveStateResults != "" {
+			log.Info().Msg("✅ Live state comparison completed")
+		}
+	} else if opts.CompareLiveState && opts.CreateCluster {
+		log.Warn().Msg("⚠️ Live state comparison is not supported when creating a new cluster")
+	}
+
 	log.Info().Msgf("⏰ Run time stats: %s", infoBox.Stats())
 
 	return nil
@@ -403,3 +461,38 @@ func convertToYamlString(apps *extract.ExtractedApp) (string, error) {
 	}
 	return strings.Join(manifestStrings, "\n---\n"), nil
 }
+
+// fetchAndCompareLiveState fetches live cluster state and compares it with rendered manifests
+func fetchAndCompareLiveState(
+	apps []argoapplication.ArgoResource,
+	renderedManifests []extract.ExtractedApp,
+	argocdNamespace string,
+	outputFolder string,
+) (string, error) {
+	// Fetch live state
+	liveStates, err := livestate.FetchLiveStateForApps(apps, argocdNamespace)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch live state: %w", err)
+	}
+
+	if len(liveStates) == 0 {
+		log.Info().Msg("📊 No live state found for any applications")
+		return "", nil
+	}
+
+	// Compare with rendered manifests
+	comparisonResults := livestate.CompareWithLiveState(renderedManifests, liveStates)
+
+	// Format and write results
+	formattedResults := livestate.FormatComparisonResults(comparisonResults)
+	
+	// Write to file
+	liveStateFile := fmt.Sprintf("%s/live-state-comparison.md", outputFolder)
+	if err := utils.WriteFile(liveStateFile, formattedResults); err != nil {
+		return "", fmt.Errorf("failed to write live state comparison: %w", err)
+	}
+
+	log.Info().Msgf("📝 Live state comparison written to: %s", liveStateFile)
+	return formattedResults, nil
+}
+

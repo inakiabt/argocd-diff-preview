@@ -34,7 +34,10 @@ The safest way to make changes to you Helm Charts and Kustomize Overlays in your
 - Can be run locally before you open the pull request
 - Supports private repositories and Helm charts
 - Supports multi-source applications
-- Render resources from external sources (e.g., Helm charts). For example, when you update the Helm Chart version of `nginx`, you can see what exactly changed. [PR example](https://github.com/dag-andersen/argocd-diff-preview/pull/15) 
+- Render resources from external sources (e.g., Helm charts). For example, when you update the Helm Chart version of `nginx`, you can see what exactly changed. [PR example](https://github.com/dag-andersen/argocd-diff-preview/pull/15)
+- **Filter by specific application paths**: Use `--application` flag to specify multiple application files to validate
+- **App of Apps pattern support**: Automatically discovers and renders child applications created by root applications
+- **Live state comparison**: Compare rendered manifests with live cluster state using `--compare-live-state` flag
 
 ---
 
@@ -140,6 +143,162 @@ If you’re using GitLab, Bitbucket, Jenkins, CircleCI, or any other tool – it
 Instead of spinning up an ephemeral cluster for each diff preview, you can connect to a cluster with Argo CD pre-installed. This saves approximately `60` seconds per run. Refer to the [documentation](https://dag-andersen.github.io/argocd-diff-preview/reusing-clusters/connecting/) to learn how to do this.
 
 Rendering manifests for all applications in your repository on every pull request can be time-consuming, especially in large monorepos. By default, `argocd-diff-preview` renders all applications it finds, but you can significantly speed up the process by limiting which applications are rendered. Refer to the [Application Selection](https://dag-andersen.github.io/argocd-diff-preview/application-selection/) section in the docs to learn how to do this.
+
+### Filter by Specific Application Paths
+
+You can filter which applications to validate by specifying their paths directly. This is particularly useful when:
+- Restructuring your repository (e.g., moving from single to multi-cluster structure)
+- Validating specific root applications (e.g., separate prod and dev roots)
+- Testing changes to critical applications only
+
+**Option 1: Same application paths for both branches**
+
+Example with CLI flags:
+```bash
+argocd-diff-preview \
+  --application apps/clusters/main/root.yaml \
+  --application apps/clusters/dev/root.yaml \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e APPLICATION="apps/clusters/main/root.yaml,apps/clusters/dev/root.yaml" \
+  dagandersen/argocd-diff-preview:latest
+```
+
+**Option 2: Different application paths for base and target branches**
+
+Use this when restructuring where application files are in different locations between branches.
+
+Example with CLI flags:
+```bash
+argocd-diff-preview \
+  --base-application apps/old-structure/root.yaml \
+  --target-application apps/new-structure/prod/root.yaml \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e BASE_APPLICATION="apps/old-structure/root.yaml" \
+  -e TARGET_APPLICATION="apps/new-structure/prod/root.yaml" \
+  dagandersen/argocd-diff-preview:latest
+```
+
+> **Notes**: 
+> - For environment variables, separate multiple paths with commas (e.g., `APPLICATION="path1,path2"`)
+> - If `--target-application` is not specified, it defaults to the value of `--base-application`
+> - The `--application` flag applies to both branches unless overridden by `--base-application` or `--target-application`
+> - **App of Apps Discovery**: When you specify application paths, the tool automatically discovers and renders all child applications created by the root applications (see next section)
+
+### App of Apps Pattern Support
+
+When using the **App of Apps pattern** (where a root application creates child applications), the tool automatically discovers and renders all child applications after deploying the root application. This is especially useful for repository restructuring where you want to ensure the new structure produces the same resources as the current one.
+
+**How it works:**
+1. Tool deploys the root application(s) specified via `--base-application` or `--target-application`
+2. Waits for ArgoCD to sync and create child applications
+3. Discovers all child applications from ArgoCD
+4. Renders manifests from all discovered applications
+5. Compares rendered manifests between base and target branches
+
+**Example - Validating repository restructuring:**
+
+You have a root application `apps/cavaco.yaml` in the main branch that references 155 child applications. You're restructuring to `apps/clusters/main/root.yaml` which should reference the same 155 apps.
+
+```bash
+docker run \
+  --network=host \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=feature/restructure \
+  -e REPO=myorg/myrepo \
+  -e BASE_APPLICATION="apps/cavaco.yaml" \
+  -e TARGET_APPLICATION="apps/clusters/main/root.yaml" \
+  dagandersen/argocd-diff-preview:latest
+```
+
+The tool will:
+- Deploy `apps/cavaco.yaml` from main branch → discover and render all 155 child apps
+- Deploy `apps/clusters/main/root.yaml` from feature branch → discover and render all child apps
+- Compare the rendered manifests from both sets of applications
+- Show you any differences in the output
+
+If the diff is empty, your restructuring is safe - both structures produce identical resources.
+
+**When to use App of Apps discovery:**
+- Validating repository restructuring (moving application locations)
+- Testing changes to root applications that manage multiple environments
+- Ensuring multi-cluster migrations don't alter deployed resources
+- Comparing different organizational structures in your GitOps repo
+
+> **Note**: App of Apps discovery only activates when you specify `--base-application` or `--target-application` flags. If these flags are not used, the tool processes all discovered application files in the repository as usual.
+
+### Live State Comparison
+
+When you have an existing cluster with Argo CD pre-installed, you can compare the rendered manifests with the live cluster state using the `--compare-live-state` flag. This helps you:
+- Validate that changes won't unintentionally alter the live cluster state
+- See what resources will be created, updated, or deleted
+- Ensure consistency between different environments
+
+Example with CLI flags:
+```bash
+argocd-diff-preview \
+  --create-cluster=false \
+  --compare-live-state \
+  --base-branch main \
+  --target-branch my-feature-branch \
+  --repo myorg/myrepo
+```
+
+Example with Docker and environment variables:
+```bash
+docker run \
+  --network=host \
+  -v ~/.kube:/root/.kube \
+  -v $(pwd)/main:/base-branch \
+  -v $(pwd)/pull-request:/target-branch \
+  -v $(pwd)/output:/output \
+  -e BASE_BRANCH=main \
+  -e TARGET_BRANCH=my-feature-branch \
+  -e REPO=myorg/myrepo \
+  -e CREATE_CLUSTER=false \
+  -e COMPARE_LIVE_STATE=true \
+  dagandersen/argocd-diff-preview:latest
+```
+
+The tool will generate a `live-state-comparison.md` file in the output folder showing:
+- Resources only in rendered manifests (will be created)
+- Resources only in live state (will be deleted)
+- Resources with differences (will be updated)
+
+> **Note**: Live state comparison only works when connecting to an existing cluster with `--create-cluster=false`.
 
 ## Full Documentation
 

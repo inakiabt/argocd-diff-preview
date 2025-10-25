@@ -134,6 +134,7 @@ spec:
 		Yaml:     &y,
 		Kind:     Application,
 		Id:       name,
+		Name:     name,
 		FileName: fileName,
 	}
 }

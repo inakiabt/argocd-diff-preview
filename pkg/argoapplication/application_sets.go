@@ -24,7 +24,8 @@ func ConvertAppSetsToAppsInBothBranches(
 	tempFolder string,
 	redirectRevisions []string,
 	debug bool,
-	filterOptions FilterOptions,
+	baseFilterOptions FilterOptions,
+	targetFilterOptions FilterOptions,
 ) ([]ArgoResource, []ArgoResource, time.Duration, error) {
 	startTime := time.Now()
 	defer func() {
@@ -42,7 +43,7 @@ func ConvertAppSetsToAppsInBothBranches(
 		baseBranch,
 		baseTempFolder,
 		debug,
-		filterOptions,
+		baseFilterOptions,
 		repo,
 		redirectRevisions,
 	)
@@ -58,7 +59,7 @@ func ConvertAppSetsToAppsInBothBranches(
 		targetBranch,
 		targetTempFolder,
 		debug,
-		filterOptions,
+		targetFilterOptions,
 		repo,
 		redirectRevisions,
 	)
