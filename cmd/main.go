@@ -13,6 +13,7 @@ import (
 	"github.com/dag-andersen/argocd-diff-preview/pkg/extract"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/fileparsing"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/git"
+	"github.com/dag-andersen/argocd-diff-preview/pkg/livestate"
 	"github.com/dag-andersen/argocd-diff-preview/pkg/utils"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -359,6 +360,22 @@ func run(opts *Options) error {
 		return err
 	}
 
+	// If compare-live-state flag is enabled, fetch and compare with live state
+	if opts.CompareLiveState && !opts.CreateCluster {
+		log.Info().Msg("🔍 Comparing rendered manifests with live cluster state")
+		
+		// Import the livestate package
+		liveStateResults, err := fetchAndCompareLiveState(targetApps, targetManifests, opts.ArgocdNamespace, opts.OutputFolder)
+		if err != nil {
+			log.Warn().Msgf("⚠️ Failed to compare with live state: %v", err)
+			// Don't fail the entire run if live state comparison fails
+		} else if liveStateResults != "" {
+			log.Info().Msg("✅ Live state comparison completed")
+		}
+	} else if opts.CompareLiveState && opts.CreateCluster {
+		log.Warn().Msg("⚠️ Live state comparison is not supported when creating a new cluster")
+	}
+
 	log.Info().Msgf("⏰ Run time stats: %s", infoBox.Stats())
 
 	return nil
@@ -405,3 +422,38 @@ func convertToYamlString(apps *extract.ExtractedApp) (string, error) {
 	}
 	return strings.Join(manifestStrings, "\n---\n"), nil
 }
+
+// fetchAndCompareLiveState fetches live cluster state and compares it with rendered manifests
+func fetchAndCompareLiveState(
+	apps []argoapplication.ArgoResource,
+	renderedManifests []extract.ExtractedApp,
+	argocdNamespace string,
+	outputFolder string,
+) (string, error) {
+	// Fetch live state
+	liveStates, err := livestate.FetchLiveStateForApps(apps, argocdNamespace)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch live state: %w", err)
+	}
+
+	if len(liveStates) == 0 {
+		log.Info().Msg("📊 No live state found for any applications")
+		return "", nil
+	}
+
+	// Compare with rendered manifests
+	comparisonResults := livestate.CompareWithLiveState(renderedManifests, liveStates)
+
+	// Format and write results
+	formattedResults := livestate.FormatComparisonResults(comparisonResults)
+	
+	// Write to file
+	liveStateFile := fmt.Sprintf("%s/live-state-comparison.md", outputFolder)
+	if err := utils.WriteFile(liveStateFile, formattedResults); err != nil {
+		return "", fmt.Errorf("failed to write live state comparison: %w", err)
+	}
+
+	log.Info().Msgf("📝 Live state comparison written to: %s", liveStateFile)
+	return formattedResults, nil
+}
+
