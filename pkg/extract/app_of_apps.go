@@ -156,12 +156,13 @@ func DiscoverChildApplications(
 		}
 
 		childApp := argoapplication.ArgoResource{
-			Id:       appName,
-			Name:     originalName,
-			FileName: fmt.Sprintf("discovered-from-argocd/%s.yaml", originalName),
-			Branch:   branch,
-			Yaml:     &argoRes,
-			Kind:     argoapplication.Application,
+			Id:              appName,
+			Name:            originalName,
+			FileName:        fmt.Sprintf("discovered-from-argocd/%s.yaml", originalName),
+			Branch:          branch,
+			Yaml:            &argoRes,
+			Kind:            argoapplication.Application,
+			AlreadyDeployed: true, // This app exists in ArgoCD, don't re-apply it
 		}
 
 		childApps = append(childApps, childApp)

@@ -240,11 +240,16 @@ func getResourcesFromApp(argocd *argocdPkg.ArgoCDInstallation, app argoapplicati
 		return ExtractedApp{}, "", fmt.Errorf("failed to label application with run ID: %w", err)
 	}
 
-	if err := argocd.K8sClient.ApplyManifest(app.Yaml, "string", argocd.Namespace); err != nil {
-		return ExtractedApp{}, "", fmt.Errorf("failed to apply manifest for application %s: %w", app.GetLongName(), err)
+	// Only apply the manifest if this app wasn't already discovered from ArgoCD
+	// Discovered apps already exist in the cluster and will fail if we try to re-apply them
+	if !app.AlreadyDeployed {
+		if err := argocd.K8sClient.ApplyManifest(app.Yaml, "string", argocd.Namespace); err != nil {
+			return ExtractedApp{}, "", fmt.Errorf("failed to apply manifest for application %s: %w", app.GetLongName(), err)
+		}
+		log.Debug().Str("App", app.GetLongName()).Msg("Applied manifest for application")
+	} else {
+		log.Debug().Str("App", app.GetLongName()).Msg("Skipping apply for already-deployed application (discovered from ArgoCD)")
 	}
-
-	log.Debug().Str("App", app.GetLongName()).Msg("Applied manifest for application")
 
 	startTime := time.Now()
 	var result ExtractedApp
