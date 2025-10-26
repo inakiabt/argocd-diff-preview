@@ -95,20 +95,20 @@ func getManifestSortKey(manifestStr string) string {
 	}
 
 	kind, _ := obj["kind"].(string)
-	
+
 	metadata, ok := obj["metadata"].(map[string]interface{})
 	if !ok {
 		return kind
 	}
-	
+
 	namespace, _ := metadata["namespace"].(string)
 	name, _ := metadata["name"].(string)
-	
+
 	// Create a sort key that ensures consistent ordering
 	// Using "/" as separator and handling empty values
 	if namespace == "" {
 		namespace = "~" // Sort cluster-scoped resources last
 	}
-	
+
 	return fmt.Sprintf("%s/%s/%s", kind, namespace, name)
 }

@@ -403,10 +403,10 @@ func convertToYamlString(apps *extract.ExtractedApp) (string, error) {
 		}
 		manifestStrings = append(manifestStrings, string(manifestString))
 	}
-	
+
 	// Sort manifests by their identity to ensure consistent ordering
 	// This prevents false diffs when manifests are returned in different orders
 	utils.SortManifestStrings(manifestStrings)
-	
+
 	return strings.Join(manifestStrings, "\n---\n"), nil
 }

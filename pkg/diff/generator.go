@@ -112,7 +112,7 @@ func writeManifestsToDisk(apps []AppInfo, folder string) error {
 		// Sort the manifests within the FileContent to ensure consistent ordering
 		// This prevents false diffs when manifests are in different orders
 		sortedContent := sortManifestsInYAML(app.FileContent)
-		
+
 		if err := utils.WriteFile(fmt.Sprintf("%s/%s", folder, app.Id), sortedContent); err != nil {
 			return fmt.Errorf("failed to write manifest %s: %w", app.Id, err)
 		}
@@ -125,10 +125,10 @@ func writeManifestsToDisk(apps []AppInfo, folder string) error {
 func sortManifestsInYAML(yamlContent string) string {
 	// Split the YAML into individual manifests
 	manifests := utils.SplitYAMLDocuments(yamlContent)
-	
+
 	// Sort the manifests
 	utils.SortManifestStrings(manifests)
-	
+
 	// Join them back together
 	return strings.Join(manifests, "\n---\n")
 }
