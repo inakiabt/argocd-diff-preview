@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -108,11 +109,28 @@ func writeManifestsToDisk(apps []AppInfo, folder string) error {
 		return fmt.Errorf("failed to create folder: %s: %w", folder, err)
 	}
 	for _, app := range apps {
-		if err := utils.WriteFile(fmt.Sprintf("%s/%s", folder, app.Id), app.FileContent); err != nil {
+		// Sort the manifests within the FileContent to ensure consistent ordering
+		// This prevents false diffs when manifests are in different orders
+		sortedContent := sortManifestsInYAML(app.FileContent)
+		
+		if err := utils.WriteFile(fmt.Sprintf("%s/%s", folder, app.Id), sortedContent); err != nil {
 			return fmt.Errorf("failed to write manifest %s: %w", app.Id, err)
 		}
 	}
 	return nil
+}
+
+// sortManifestsInYAML takes a YAML string containing multiple manifests separated by ---
+// and returns the same YAML with manifests sorted by their identity
+func sortManifestsInYAML(yamlContent string) string {
+	// Split the YAML into individual manifests
+	manifests := utils.SplitYAMLDocuments(yamlContent)
+	
+	// Sort the manifests
+	utils.SortManifestStrings(manifests)
+	
+	// Join them back together
+	return strings.Join(manifests, "\n---\n")
 }
 
 // generateGitDiff creates temporary Git repositories and uses go-git to generate a diff

@@ -281,3 +281,155 @@ metadata:
 		})
 	}
 }
+
+func TestSortManifestStrings(t *testing.T) {
+tests := []struct {
+name     string
+input    []string
+expected []string
+}{
+{
+name:     "empty slice",
+input:    []string{},
+expected: []string{},
+},
+{
+name: "single manifest",
+input: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+},
+},
+{
+name: "two manifests already sorted",
+input: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test1\n  namespace: default",
+"apiVersion: v1\nkind: Secret\nmetadata:\n  name: test2\n  namespace: default",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test1\n  namespace: default",
+"apiVersion: v1\nkind: Secret\nmetadata:\n  name: test2\n  namespace: default",
+},
+},
+{
+name: "two manifests need sorting by kind",
+input: []string{
+"apiVersion: v1\nkind: Service\nmetadata:\n  name: test\n  namespace: default",
+"apiVersion: v1\nkind: Deployment\nmetadata:\n  name: test\n  namespace: default",
+},
+expected: []string{
+"apiVersion: v1\nkind: Deployment\nmetadata:\n  name: test\n  namespace: default",
+"apiVersion: v1\nkind: Service\nmetadata:\n  name: test\n  namespace: default",
+},
+},
+{
+name: "two manifests need sorting by name",
+input: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: z-config\n  namespace: default",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a-config\n  namespace: default",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a-config\n  namespace: default",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: z-config\n  namespace: default",
+},
+},
+{
+name: "manifests with different namespaces",
+input: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: prod",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: dev",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: dev",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: prod",
+},
+},
+{
+name: "cluster-scoped vs namespaced resources",
+input: []string{
+"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+"apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test",
+},
+},
+{
+name: "complex sorting scenario",
+input: []string{
+"apiVersion: v1\nkind: Service\nmetadata:\n  name: app\n  namespace: prod",
+"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app\n  namespace: dev",
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n  namespace: prod",
+"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app\n  namespace: prod",
+},
+expected: []string{
+"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: config\n  namespace: prod",
+"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app\n  namespace: dev",
+"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: app\n  namespace: prod",
+"apiVersion: v1\nkind: Service\nmetadata:\n  name: app\n  namespace: prod",
+},
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+// Make a copy to avoid modifying the input
+input := make([]string, len(tt.input))
+copy(input, tt.input)
+
+SortManifestStrings(input)
+
+if len(input) != len(tt.expected) {
+t.Errorf("Expected %d manifests, got %d", len(tt.expected), len(input))
+return
+}
+
+for i := range input {
+if input[i] != tt.expected[i] {
+t.Errorf("Manifest %d mismatch:\nExpected:\n%s\n\nGot:\n%s", i, tt.expected[i], input[i])
+}
+}
+})
+}
+}
+
+func TestGetManifestSortKey(t *testing.T) {
+tests := []struct {
+name     string
+manifest string
+expected string
+}{
+{
+name:     "standard manifest with namespace",
+manifest: "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: test\n  namespace: default",
+expected: "ConfigMap/default/test",
+},
+{
+name:     "cluster-scoped resource",
+manifest: "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: test",
+expected: "Namespace/~/test",
+},
+{
+name:     "invalid YAML",
+manifest: "not valid yaml {{{",
+expected: "not valid yaml {{{",
+},
+{
+name:     "missing metadata",
+manifest: "apiVersion: v1\nkind: ConfigMap",
+expected: "ConfigMap",
+},
+}
+
+for _, tt := range tests {
+t.Run(tt.name, func(t *testing.T) {
+result := getManifestSortKey(tt.manifest)
+if result != tt.expected {
+t.Errorf("Expected %q, got %q", tt.expected, result)
+}
+})
+}
+}

@@ -466,3 +466,118 @@ spec:
 
 	t.Logf("✅ Success: Files with changing names (A-before.yaml -> A-after.yaml) were correctly matched by app identity!")
 }
+
+// TestGenerateGitDiff_ManifestOrderingDoesNotAffectDiff tests that reordering manifests
+// within an app's YAML output does not cause false diffs
+func TestGenerateGitDiff_ManifestOrderingDoesNotAffectDiff(t *testing.T) {
+// Create temporary directory for test
+tempDir, err := os.MkdirTemp("", "diff-test-ordering-*")
+if err != nil {
+t.Fatalf("Failed to create temp dir: %v", err)
+}
+defer func() { _ = os.RemoveAll(tempDir) }()
+
+basePath := filepath.Join(tempDir, "base")
+targetPath := filepath.Join(tempDir, "target")
+
+// Create manifests in one order for base
+baseContent := `apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+spec:
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: default
+spec:
+  replicas: 2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+  namespace: default
+data:
+  key: value`
+
+// Create manifests in different order for target (but same content)
+targetContent := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+  namespace: default
+data:
+  key: value
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: default
+spec:
+  selector:
+    app: my-app
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-deployment
+  namespace: default
+spec:
+  replicas: 2`
+
+baseApps := []AppInfo{
+{
+Id:          "app.yaml",
+Name:        "my-app",
+SourcePath:  "/path/to/app",
+FileContent: baseContent,
+},
+}
+
+targetApps := []AppInfo{
+{
+Id:          "app.yaml",
+Name:        "my-app",
+SourcePath:  "/path/to/app",
+FileContent: targetContent,
+},
+}
+
+// Run the diff generation
+summary, markdownSections, htmlSections, err := generateGitDiff(
+basePath, targetPath, nil, 3, baseApps, targetApps,
+)
+
+if err != nil {
+t.Fatalf("generateGitDiff failed: %v", err)
+}
+
+// Since the content is identical (just reordered), we should have NO changes
+if len(markdownSections) != 0 {
+t.Errorf("Expected 0 changes due to identical content, got %d changes", len(markdownSections))
+for i, section := range markdownSections {
+content, _ := section.build(10000)
+t.Logf("Unexpected change %d:\n%s", i, content)
+}
+}
+
+if len(htmlSections) != 0 {
+t.Errorf("Expected 0 HTML sections, got %d", len(htmlSections))
+}
+
+// Summary should indicate no changes
+if !strings.Contains(summary, "No changes found") {
+t.Errorf("Summary should indicate no changes, got: %s", summary)
+}
+}

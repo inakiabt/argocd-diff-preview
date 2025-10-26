@@ -392,6 +392,8 @@ func convertExtractedAppToAppInfo(extractedApp extract.ExtractedApp) (diff.AppIn
 }
 
 // convertToYamlString converts a list of ExtractedApp to a single YAML string
+// All manifests are sorted by their identity (kind, namespace, name) to ensure
+// consistent ordering across runs
 func convertToYamlString(apps *extract.ExtractedApp) (string, error) {
 	var manifestStrings []string
 	for _, manifest := range apps.Manifest {
@@ -401,5 +403,10 @@ func convertToYamlString(apps *extract.ExtractedApp) (string, error) {
 		}
 		manifestStrings = append(manifestStrings, string(manifestString))
 	}
+	
+	// Sort manifests by their identity to ensure consistent ordering
+	// This prevents false diffs when manifests are returned in different orders
+	utils.SortManifestStrings(manifestStrings)
+	
 	return strings.Join(manifestStrings, "\n---\n"), nil
 }
