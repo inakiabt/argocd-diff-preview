@@ -5,10 +5,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync/atomic"
 
 	"github.com/rs/zerolog/log"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -73,4 +75,40 @@ func SplitYAMLDocuments(manifest string) []string {
 	}
 
 	return result
+}
+
+// SortManifestStrings sorts a slice of YAML manifest strings by their resource identity
+// (kind, namespace, name) to ensure consistent ordering across runs
+func SortManifestStrings(manifestStrings []string) {
+	sort.Slice(manifestStrings, func(i, j int) bool {
+		return getManifestSortKey(manifestStrings[i]) < getManifestSortKey(manifestStrings[j])
+	})
+}
+
+// getManifestSortKey extracts a sort key from a YAML manifest string
+// The key format is: "kind/namespace/name"
+func getManifestSortKey(manifestStr string) string {
+	var obj map[string]interface{}
+	if err := yaml.Unmarshal([]byte(manifestStr), &obj); err != nil {
+		// If we can't parse it, use the raw string for sorting
+		return manifestStr
+	}
+
+	kind, _ := obj["kind"].(string)
+
+	metadata, ok := obj["metadata"].(map[string]interface{})
+	if !ok {
+		return kind
+	}
+
+	namespace, _ := metadata["namespace"].(string)
+	name, _ := metadata["name"].(string)
+
+	// Create a sort key that ensures consistent ordering
+	// Using "/" as separator and handling empty values
+	if namespace == "" {
+		namespace = "~" // Sort cluster-scoped resources last
+	}
+
+	return fmt.Sprintf("%s/%s/%s", kind, namespace, name)
 }
